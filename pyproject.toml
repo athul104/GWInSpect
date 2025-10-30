@@ -34,6 +34,7 @@ dependencies = [
 Homepage = "https://github.com/athul104/GWInSpect"
 Issues = "https://github.com/athul104/GWInSpect/issues"
 
+# Optional: central include list (works for both wheel/sdist)
 [tool.hatch.build]
 include = [
   "src/gwinspect/**/*.py",
@@ -41,4 +42,22 @@ include = [
   "LICENSE",
   "README.md",
   "CHANGELOG.md",
+  "CITATION.cff",                 # <-- add this (optional)
+]
+# Optional: proactively exclude folders you’ll add later
+exclude = [
+  "tests",
+  "examples",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gwinspect"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/gwinspect",
+  "LICENSE",
+  "README.md",
+  "CHANGELOG.md",
+  "CITATION.cff",
 ]
