@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use GWInSpect in your research, please cite the software and the companion paper below."
+title: "GWInSpect: reheating-era GW spectra and BBN constraint"
+version: "0.1.0"
+date-released: "2025-10-30"
+authors:
+  - name: "GWInSpect authors"
+repository-code: "https://github.com/athul104/GWInSpect"
+license: "GPL-3.0-or-later"
+
+preferred-citation:
+  type: article
+  title: "Morphological Zoo of Inflationary Gravitational Wave Spectra imprinted by a Sequence of Post-Inflationary Epochs"
+  authors:
+    - name: "Swagat S. Mishra"
+    - name: "Athul K. Soman"
+  year: 2025
+  journal: "arXiv"
+  identifiers:
+    - type: "arXiv"
+      value: "2510.25672"
+  url: "https://arxiv.org/abs/2510.25672"
