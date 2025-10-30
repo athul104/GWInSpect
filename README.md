@@ -1,29 +1,14 @@
-# GWInSpect
+# GWInSpect (WIP)
 
-**GWInSpect** (Gravitational-Wave Inflation Spectrum) is a lightweight, single-file Python module for computing and visualizing the **spectral energy density of primordial gravitational waves** generated during the **inflation–reheating** transition.  
+**Status:** early alpha, API may change. A minimal, research-oriented Python package to:
+- build present-day GW spectra across piecewise-constant reheating epochs, and
+- evaluate a piecewise **BBN** constraint integral.
 
-It also provides quick utilities to check **BBN constraints** and visualize multi-epoch reheating scenarios.
+The code supports per-epoch equations of state \(w_i\), energy/temperature transitions, and lets you set the inflation scale via \(r\) **or** \(E_{\rm inf}\). A tabulated \(g_\*(T)\), \(g_{s}(T)\) is bundled.
 
----
+> 📝 This is work-in-progress accompanying a companion paper on GWs during reheating. Expect rapid changes; validation and tests will follow after the arXiv version is posted.
 
-## 🚀 Features
-
-- Compute the gravitational-wave spectrum `Ω_GW(f)` for arbitrary reheating histories  
-- Handle multiple equation-of-state (EoS) epochs  
-- Check Big Bang Nucleosynthesis (BBN) constraints via  
-  - `piecewise` (recommended)  
-  - `intersection`  
-  - `weaker`  
-- Minimal dependencies (`numpy`, `scipy`, `matplotlib`)  
-- Simple to import — just one Python file!
-
----
-
-## 📦 Installation
-
-Clone the repository and install locally:
-
+## Install (source)
 ```bash
-git clone https://github.com/athul104/GWInSpect.git
-cd GWInSpect
+# clone your repo, then in the repo root:
 pip install -e .

@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gwinspect"
+version = "0.1.0"
+description = "Gravitational-wave reheating spectra + BBN constraint (work-in-progress)."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "GWInSpect authors" }]
+keywords = ["cosmology", "gravitational waves", "reheating", "BBN", "early universe"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+
+dependencies = [
+  "numpy>=1.21",
+  "scipy>=1.9",
+  "mpmath>=1.2.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/athul104/GWInSpect"
+Issues = "https://github.com/athul104/GWInSpect/issues"
+
+[tool.hatch.build]
+include = [
+  "src/gwinspect/**/*.py",
+  "src/gwinspect/data/eff_rel_dof.txt",
+  "LICENSE",
+  "README.md",
+  "CHANGELOG.md",
+]
