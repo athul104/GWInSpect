@@ -151,13 +151,14 @@ from gwinspect import get_omega_gw, bbn_bound, g_star_k, freq
 If you use GWInSpect in academic work, please cite:
 
 ```bibtex
-@article{GWInSpect2025,
-  author    = {Swagat S. Mishra and Athul K. Soman},
-  title     = {Morphological Zoo of Inflationary Gravitational Wave Spectra imprinted by a Sequence of Post-Inflationary Epochs},
-  journal   = {arXiv e-prints},
-  eprint    = {2510.25672},
-  primaryClass = {astro-ph.CO},
-  year      = {2025}
+@article{Mishra:2025nnu,
+    author = "Mishra, Swagat S. and Soman, Athul K.",
+    title = "{Morphological Zoo of Inflationary Gravitational Wave Spectra imprinted by a Sequence of Post-Inflationary Epochs}",
+    eprint = "2510.25672",
+    archivePrefix = "arXiv",
+    primaryClass = "astro-ph.CO",
+    month = "10",
+    year = "2025"
 }
 ```
 
