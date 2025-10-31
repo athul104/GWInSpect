@@ -2,7 +2,7 @@
 
 > ⚠️ **Work in Progress:**  
 > The final verification of the package functionality is **still under process**.  
-> Users are **not advised to use this version** for analysis until formal validation and documentation are completed.
+> A complete and compact package will be available by early November.
 
 ---
 
