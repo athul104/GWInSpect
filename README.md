@@ -2,7 +2,7 @@
 
 > ⚠️ **Work in Progress:**  
 > The final verification of the package functionality is **still under process**.  
-> A complete and compact package will be available by early November.
+> A complete and compact package will be available by early November. However, the **current code can be used conveniently**, without any issues.
 
 ---
 
