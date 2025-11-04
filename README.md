@@ -10,7 +10,7 @@
 
 **GWInSpect** is a lightweight, research-grade Python package that computes:
 
-- The **present-day spectral energy density** of first-order inflationary gravitational waves \( \Omega_{\rm GW}(f) \), shaped by a user-defined post-inflationary expansion history.
+- The **present-day spectral energy density** of first-order inflationary gravitational waves, $\Omega_{\rm GW}(f) $, produced by a user-defined post-inflationary expansion history.
 - Whether the **BBN constraint** on total gravitational wave energy density is satisfied.
 
 A full tutorial notebook is included under [`examples/tutorial_gwinspect.ipynb`](examples/tutorial_gwinspect.ipynb).
