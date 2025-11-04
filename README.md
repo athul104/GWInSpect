@@ -51,23 +51,22 @@ pip install -e .
 Each module is independently documented and demonstrated in the tutorial notebook.
 
 * ```spectrum.py```
-* * ```compute_omega_gw```  
+    * ```compute_omega_gw```  
 Computes $\Omega_{\rm GW}(f)$ for user defined post-inflationary scenario consisting of multiple epochs during pre-hot Big Bang phase with different constant equations of state. 
 
-```constraints.py```
-* ```check_bbn```  
+* ```constraints.py```
+    * ```check_bbn```  
 Computes BBN constraint integral piecewise for the user defined post-inflationary scenario.
 
-```cosmo_tools.py```
+* ```cosmo_tools.py```
 Utilities for cosmological conversions:
-
-* ```temp_of_E```
+    * ```temp_of_E```
 Convert temperature to energy scale
-* ```energy_of_T```
+    * ```energy_of_T```
 Convert energy scale to temperature
-* ```freq_of_T```
+    * ```freq_of_T```
 Convert temperature to present-day frequency of gravitational waves
-* ```compute_efolds```
+    * ```compute_efolds```
 Compute number of $e$-folds extended during an epoch
 
 ```thermo.py```
