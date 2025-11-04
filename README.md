@@ -25,7 +25,7 @@ A full tutorial notebook is included under [`examples/tutorial_gwinspect.ipynb`]
 pip install gwinspect
 ```
 
-### :octocat: From GitHub
+### 🧪 From GitHub
 
 ```bash
 pip install git+https://github.com/athul104/GWInSpect.git
@@ -88,14 +88,13 @@ The package includes a tutorial notebook:
 examples/tutorial_gwinspect.ipynb
 ```
 
+## 📚 Citation
+
 This package accompanies the paper:
 
 > **Swagat S. Mishra & Athul K. Soman (2025)**  
 > *Morphological Zoo of Inflationary Gravitational Wave Spectra imprinted by a Sequence of Post-Inflationary Epochs*  
 > [arXiv:2510.25672](https://arxiv.org/abs/2510.25672)
-
-
-## 📚 Citation
 
 If you use GWInSpect in academic work, please cite:
 
