@@ -50,8 +50,8 @@ pip install -e .
 
 Each module is independently documented and demonstrated in the tutorial notebook.
 
-```spectrum.py```
-* ```compute_omega_gw```  
+* ```spectrum.py```
+** ```compute_omega_gw```  
 Computes $\Omega_{\rm GW}(f)$ for user defined post-inflationary scenario consisting of multiple epochs during pre-hot Big Bang phase with different constant equations of state. 
 
 ```constraints.py```
