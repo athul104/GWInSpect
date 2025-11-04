@@ -25,7 +25,7 @@ A full tutorial notebook is included under [`examples/tutorial_gwinspect.ipynb`]
 pip install gwinspect
 ```
 
-### 🧪 From GitHub
+### :octocat: From GitHub
 
 ```bash
 pip install git+https://github.com/athul104/GWInSpect.git
@@ -69,15 +69,15 @@ Convert temperature to present-day frequency of gravitational waves
     * ```compute_efolds```
 Compute number of $e$-folds extended during an epoch
 
-```thermo.py```
-* Uses tabulated $g_{*}(T), \, g_{s}(T)$ from ```data/eff_rel_dof.txt```
-* Key functions: ```g_star``` and ```g_s```
-* Users can load the data used to compute $g_{*}(T), \, g_{s}(T)$ using ```load_eff_rel_dof```
-* Users can also use their own preferred data for relativistic degrees of freedom using ```set_custom_eff_rel_dof```
+* ```thermo.py```
+    * Uses tabulated $g_{*}(T), \, g_{s}(T)$ from ```data/eff_rel_dof.txt```
+    * Key functions: ```g_star``` and ```g_s```
+    * Users can load the data used to compute $g_{*}(T), \, g_{s}(T)$ using ```load_eff_rel_dof```
+    * Users can also use their own preferred data for relativistic degrees of freedom using ```set_custom_eff_rel_dof```
 
-```constants.py```
-* Contains constants: reduced Planck mass ```m_P```, present CMB temperature ```T0```, scalar amplitude ```A_S```, Present radiation density parameter ```omega_rad0```, BBN temperature ```T_bbn```, matter-radiation equality temperature ```T_eq```
-* Users can also redefine the values of this conatant using ```set_constants```
+* ```constants.py```
+    * Contains constants: reduced Planck mass ```m_P```, present CMB temperature ```T0```, scalar amplitude ```A_S```, Present radiation density parameter ```omega_rad0```, BBN temperature ```T_bbn```, matter-radiation equality temperature ```T_eq```
+    * Users can also redefine the values of this conatant using ```set_constants```
 
 
 ## 📓 Tutorial Notebook
@@ -113,13 +113,13 @@ If you use GWInSpect in academic work, please cite:
 ---
 
 ## 🛠 License
-GPL-3.0-or-later
-© GWInSpect authors (2025)
+GPL-3.0-or-later  
+©️ GWInSpect authors (2025)
 
 
 ## 🙋 Feedback
 
-Thank you for your interest in **GWInSpect**.  
+Thank you for your interest in **GWInSpect** 💜.  
 Please report issues or suggestions at:
 [github.com/athul104/GWInSpect/issues](https://github.com/athul104/GWInSpect/issues)
 
