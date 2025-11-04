@@ -35,7 +35,7 @@ def check_bbn(
     r: float | None = None,
     E_inf: float | None = None,
     bbn_bound: float = 1.13e-6,
-    eps: float = 1e-12,
+    tol: float = 1e-12,
 ):
     """Check if a given multi-epoch pre-hot Big Bang scenario satisfies the BBN constraint on the
     gravitational wave energy density.
@@ -57,8 +57,8 @@ def check_bbn(
         You must specify exactly one of these. If both are provided, r is used.
     bbn_bound : float
         Upper bound on the gravitational wave energy density from BBN constraints. Default is 1.13e-6.
-    eps : float
-        Tolerance value for numerical stability in calculations. If abs(alpha - 1.0) < eps during any epoch, logarithmic limit is used.
+    tol : float
+        Tolerance value for numerical stability in calculations. If abs(alpha - 1.0) < tol during any epoch, logarithmic limit is used.
         Default is 1e-12.
 
     Returns
@@ -141,7 +141,7 @@ def check_bbn(
         f_fi   = freq_list[i + 1]
         cal_F   = cal_F_arr[i]
 
-        if abs(alpha - 1.0) < eps:
+        if abs(alpha - 1.0) < tol:
             # log-limit
             integral_piece = cal_F * np.log(f_in / f_fi)
         else:
