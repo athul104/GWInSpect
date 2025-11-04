@@ -4,15 +4,15 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gwinspect"
-version = "0.1.0"
-description = "Gravitational-wave reheating spectra + BBN constraint (work-in-progress)."
+version = "1.0.0"
+description = "Spectral energy density of inflationary first-order gravitational waves with flexible multi-epoch modeling."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "GPL-3.0-or-later" }
 authors = [{ name = "GWInSpect authors" }]
 keywords = ["cosmology", "gravitational waves", "reheating", "BBN", "early universe"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Science/Research",
   "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
   "Programming Language :: Python :: 3",
@@ -34,7 +34,6 @@ dependencies = [
 Homepage = "https://github.com/athul104/GWInSpect"
 Issues = "https://github.com/athul104/GWInSpect/issues"
 
-# Optional: central include list (works for both wheel/sdist)
 [tool.hatch.build]
 include = [
   "src/gwinspect/**/*.py",
@@ -42,9 +41,8 @@ include = [
   "LICENSE",
   "README.md",
   "CHANGELOG.md",
-  "CITATION.cff",                 # <-- add this (optional)
+  "CITATION.cff",
 ]
-# Optional: proactively exclude folders you’ll add later
 exclude = [
   "tests",
   "examples",
@@ -60,4 +58,5 @@ include = [
   "README.md",
   "CHANGELOG.md",
   "CITATION.cff",
+  "examples"
 ]

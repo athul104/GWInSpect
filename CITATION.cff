@@ -1,10 +1,11 @@
 cff-version: 1.2.0
 message: "If you use GWInSpect in your research, please cite the software and the companion paper below."
-title: "GWInSpect: reheating-era GW spectra and BBN constraint"
-version: "0.1.0"
-date-released: "2025-10-30"
+title: "GWInSpect: Gravitational Wave Inflationary Spectra"
+version: "1.0.0"
+date-released: "2025-11-03"
 authors:
-  - name: "GWInSpect authors"
+  - name: "Athul K. Soman"
+  - name: "Swagat S. Mishra"
 repository-code: "https://github.com/athul104/GWInSpect"
 license: "GPL-3.0-or-later"
 
@@ -20,3 +21,4 @@ preferred-citation:
     - type: "arXiv"
       value: "2510.25672"
   url: "https://arxiv.org/abs/2510.25672"
+

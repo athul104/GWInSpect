@@ -28,3 +28,18 @@ htmlcov/
 # Editors
 .vscode/
 .idea/
+
+# Hatch build output (if used)
+*.hatch/
+
+# Temporary files
+*.log
+*.tmp
+*.bak
+
+# Mac and Linux system files
+.DS_Store
+Thumbs.db
+
+# Notebook export cache (if ever using nbconvert)
+*.nbconvert.ipynb
