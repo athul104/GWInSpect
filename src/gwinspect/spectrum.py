@@ -1,221 +1,307 @@
 # src/gwinspect/spectrum.py
 # SPDX-License-Identifier: GPL-3.0-or-later
 """
-Compute the present-day GW spectral energy density Ω_GW(f) across multiple epochs.
+Compute the present-day spectral energy density Ω_GW(f) of inflationary first-order gravitational waves
+resulting from an arbitrary sequence of pre-hot Big Bang post-inflationary epochs.
 
 Inputs:
     eos_list     : [w_1, w_2, ..., w_n]     (equation-of-state values per epoch; each in [-0.28, 1))
     energy_list  : [E_{n-1}, ..., E_2, E_1] end energies (GeV) from LATEST → EARLIEST epoch
-                   (i.e., low → high in energy). Internally we reorder to match w_1..w_n.
+                   (i.e., lowest to highest in energy). Internally reordered to align with w_1..w_n.
 
-API:
-    get_omegagw(
+Main API:
+    compute_omega_gw(
         eos_list, energy_list,
-        *, E_rstar=None, T_rstar=None,      # beginning of hot Big Bang (≃ end of reheating), GeV
-        r=None, E_inf=None,                 # provide exactly one
+        *, E_rstar=None, T_rstar=None,      # beginning of hot Big Bang (end of reheating), GeV
+        r=None, E_inf=None,                 # inflationary scale: provide exactly one
         num_of_points=1000,
-        want_freq_list=False,
-        want_efold_list=False
-    ) -> (f_arr, Omega_GW_arr[, freq_boundaries][, efold_list])
+        f_min=2e-20, f_max=None,
+        show_freqs=False,
+        show_efolds=False
+    ) -> (f_arr, omega_gw_arr[, freq_boundaries][, efold_list])
 """
 
 from __future__ import annotations
 
 import numpy as np
-import mpmath
-from scipy.special import gamma  # use SciPy per your paper
+from mpmath import besselj
+from scipy.special import gamma
 
-# package imports
-from .bg_constant import m_P, A_S, T_0, Omega_rad_0
-from .convert import Temp, vec_Temp, freq, energy_from_T, Num_of_e_folds
-from .thermo import g_star_k, g_s_k
+from typing import Union, Sequence
 
 
-def get_omega_gw(
-    eos_list,
-    energy_list,
+# Package-level constants and imports
+from .constants import T_eq, m_P, A_S, T0, omega_rad0, T_bbn
+from .cosmo_tools import temp_of_E, freq_of_T, energy_of_T, compute_efolds
+from .thermo import g_star, g_s
+
+# Define the type for f_custom argument (float, list of floats, or np.ndarray)
+ArrayLike = Union[float, Sequence[float], np.ndarray]
+
+def _prepare_frequency_array(
+    f_min: float,
+    f_max: float | None,
+    f_inf: float,
+    num_of_points: int,
+    f_custom: ArrayLike | None = None,
+) -> np.ndarray:
+    """
+    Helper function to prepare the frequency grid for Ω_GW computation.
+
+    Parameters
+    ----------
+    f_min : float
+        Minimum frequency for logspace grid [Hz].
+    f_max : float or None
+        Maximum frequency for logspace grid [Hz]. Defaults to f_inf.
+    f_inf : float
+        Inflationary frequency cutoff [Hz].
+    num_of_points : int
+        Number of log-spaced points (if f_custom not given).
+    f_custom : array-like, optional
+        If provided, use this custom frequency or frequencies instead.
+
+    Returns
+    -------
+    np.ndarray
+        Frequency array for Ω_GW computation.
+    """
+    if f_custom is not None:
+        for f in f_custom:
+            if f <= 0 or not np.isfinite(f):
+                raise ValueError("All custom frequencies must be positive and finite.")
+            if f > f_inf:
+                raise ValueError("All custom frequencies must be <= f_inf.")
+            if f < 2e-20:
+                print("Warning: custom frequency below 2e-20 Hz may correspond to super-horizon modes today.")
+        f_custom = np.asarray(f_custom, dtype=float)
+        return f_custom
+    
+    if f_min < 2e-20:
+        print("Warning: f_min below 2e-20 Hz may correspond to super-horizon modes today.")
+
+    if f_max is not None:
+        if f_max > f_inf:
+            raise ValueError("f_max must be <= f_inf.")
+        end_logf = np.log10(f_max)
+    else:
+        end_logf = np.log10(f_inf)
+    
+    start_logf = np.log10(f_min)
+    return np.logspace(start_logf, end_logf, num=num_of_points, endpoint=True, base=10.0)
+
+def compute_omega_gw(
+    eos_list: list[float],
+    energy_list: list[float],
     *,
     E_rstar: float | None = None,
     T_rstar: float | None = None,
     r: float | None = None,
     E_inf: float | None = None,
+    f_custom: float | None = None,
+    f_min: float = 2e-20,
+    f_max: float | None = None,
     num_of_points: int = 1000,
-    want_freq_list: bool = False,
-    want_efold_list: bool = False,
+    show_freqs: bool = False,
+    show_efolds: bool = False,
 ):
     """
+    Compute the present-day spectral energy density Ω_GW(f) of inflationary first-order gravitational waves
+    resulting from an arbitrary sequence of pre-hot Big Bang post-inflationary epochs.
+
     Parameters
     ----------
-    eos_list : sequence of floats
-        Equation-of-state values [w_1, w_2, ..., w_n] for the reheating epochs. Each must lie in [-0.28, 1).
-    energy_list : sequence of floats
-        End energy scales (GeV) for the epochs, provided from LATEST → EARLIEST:
-        [E_{n-1}, ..., E_2, E_1]. Internally they are reordered to match w_1..w_n.
-    E_rstar, T_rstar : float, optional (GeV)
-        Beginning of the hot Big Bang phase (≃ end of reheating). Provide exactly one of these.
-    r, E_inf : float, optional
-        Inflation scale. Provide exactly one: either tensor-to-scalar ratio r (at k*=0.05 Mpc^-1),
-        or an energy scale E_inf [GeV].
+    eos_list : list of float
+        Equation-of-state values [w_1, ..., w_n] for pre-hot Big Bang epochs. Each w ∈ [-0.28, 1).
+    energy_list : list of float
+        List of end energies [E_{n-1}, ..., E_2, E_1] (in GeV), provided from latest to earliest pre-hot Big Bang epoch.
+        This list does not include the energy scale at the end of pre-hot Big Bang (E_rstar).
+        If pre-hot Big Bang has n epochs, energy_list must have length n-1.
+        For single equation-of-state epoch (n=1), provide an empty list [].
+    E_rstar, T_rstar : float
+        Energy scale (E_rstar) or temperature (T_rstar) in GeV marking the beginning of the hot Big Bang (≃ end of reheating).
+        You must specify exactly one of these. If both are provided, T_rstar is used.
+    r, E_inf : float
+        Inflation scale: tensor-to-scalar ratio (r) at k*=0.05 Mpc^-1 or energy scale during inflation (E_inf) in GeV.
+        You must specify exactly one of these. If both are provided, r is used.
+    f_custom : list or np.ndarray, optional
+        If provided, compute Ω_GW only at these frequency/frequencies [Hz].
+    f_min, f_max : float, optional
+        Frequency limits in Hz for the output spectrum.
+        If f_max is None, use the value corresponding to the end of inflation, f_inf computed internally.
+        If f_min < 2e-20 Hz, a warning is printed since this may correspond to super-horizon modes today.
     num_of_points : int
-        Number of log-spaced frequency samples.
-    want_freq_list : bool
-        If True, also return [f_inf] + transition frequencies used internally.
-    want_efold_list : bool
-        If True, also return the list of per-epoch e-folds N_e.
+        Number of frequency samples. Default is 1000.
+    show_freqs : bool
+        If True, return the list of transition frequencies for the pre-hot Big Bang phase, [f_0 = f_inf, f_1, ..., f_n = f_{r*}].
+    show_efolds : bool
+        If True, return the list of e-folds per epoch in the pre-hot Big Bang phase, [N_e1, N_e2, ..., N_en].
+        The function also internally checks that each epoch has N_e >= 1. If not, a ValueError is raised.
 
     Returns
     -------
-    f_arr : (N,) array
-        Frequency grid [Hz].
-    Omega_GW_arr : (N,) array
-        Ω_GW(f) today.
-    freq_boundaries : list of floats, optional
-        Only if want_freq_list=True: [f_inf] + transition frequencies.
-    efold_list : list of floats, optional
-        Only if want_efold_list=True: N_e for each reheating epoch.
+    tuple
+        Depending on show_freqs and show_efolds, returns:
+        - (f_arr, omega_gw_arr, freq_boundaries (if show_freqs), efold_list (if show_efolds))
+
+        where:
+            f_arr : np.ndarray
+                Frequency array [Hz].
+            omega_gw_arr : np.ndarray
+                Corresponding present-day spectral energy density Ω_GW(f).
+            freq_boundaries : list of float, optional
+                If show_freqs=True, list of transition frequencies during pre-hot Big Bang phase [f_0 = f_inf, f_1, ..., f_n = f_{r*}] in Hz.
+            efold_list : list of float, optional
+                If show_efolds=True, list of e-folds per pre-hot Big Bang epoch [N_e1, N_e2, ..., N_en].
     """
 
-    # --- Inflation scale from r or E_inf ------------------------------------
+    if len(eos_list) != len(energy_list) + 1:
+        raise ValueError("Length mismatch: len(energy_list) must be len(eos_list) - 1.")
+
+    # --- Inflation scale: H_inf, E_inf ---
     if (r is None) == (E_inf is None):
         raise ValueError("Provide exactly one of (r, E_inf).")
     if r is not None:
         if r >= 0.036:
             raise ValueError("r exceeds the current bound (< 0.036).")
         H_inf = m_P * np.pi * np.sqrt(A_S * r / 2.0)
-        E_inf = 3.0 ** 0.25 * np.sqrt(m_P * H_inf)
+        E_inf = (3.0**0.25) * np.sqrt(m_P * H_inf)
     else:
-        if E_inf >= 1.39e16:
-            raise ValueError("E_inf exceeds the current bound (< 1.39e16 GeV).")
+        if E_inf >= 1.4e16:
+            raise ValueError("E_inf exceeds the current bound (< 1.4e16 GeV), corresponding to r < 0.036).")
         H_inf = E_inf**2 / (np.sqrt(3.0) * m_P)
 
-    # --- Validate EoS values -------------------------------------------------
-    lo, hi = (-0.28, 1.0)
+    # --- EoS validation ---
     for i, w in enumerate(eos_list):
-        if not (lo <= w < hi):
-            raise ValueError(f"EoS at position {i+1} must be in [{lo}, {hi}).")
+        if not (-0.28 <= w < 1.0):
+            raise ValueError(f"Equation of state, w, provided in eos_list at position {i+1} is out of bounds [-0.28, 1).")
 
-    # --- Reorder energies to match w_1..w_n (earliest → latest) --------------
-    # User passes latest→earliest; we sort descending numerically (high→low)
-    # so that sorted_energy aligns with w_1..w_n in time order.
-    sorted_energy = sorted(energy_list, reverse=True)
-
-    # Range checks for energies
-    for i, E_scale in enumerate(sorted_energy, start=1):
-        if not (1e-3 <= E_scale <= 1e16):
-            raise ValueError(f"Energy scale at position {i} is out of range [1e-3, 1e16] GeV.")
-    if sorted_energy and (E_inf < sorted_energy[0]):
-        raise ValueError("E_inf is less than the first epoch-end energy. Increase r or E_inf.")
-
-    # --- Reheating end / start of hot Big Bang (T_rstar or E_rstar) ---------
+    # --- Reheating end: T_rstar ---
     if (T_rstar is None) == (E_rstar is None):
-        raise ValueError("Provide exactly one of (T_rstar, E_rstar), in GeV.")
+        raise ValueError("Provide exactly one of (T_rstar, E_rstar).")
     if T_rstar is None:
-        T_rstar = Temp(E_rstar)
+        T_rstar = temp_of_E(E_rstar)
+    if T_rstar < T_bbn:
+        raise ValueError(f"The temperature corresponding to the end of pre-hot Big Bang phase, T_rstar, is below BBN temperature ({T_bbn} GeV).")
 
-    if T_rstar < 1e-3:
-        raise ValueError("T_rstar must be >= 1e-3 GeV.")
-    if sorted_energy and (T_rstar >= Temp(sorted_energy[-1])):
-        raise ValueError("T_rstar is >= the effective T at the end of the second-last epoch.")
+    # --- Reorder energies: latest → earliest input → time-ordered (high → low) ---
+    sorted_energy = sorted(energy_list, reverse=True)
+    for i in range(1, len(sorted_energy)):
+        if sorted_energy[i] >= sorted_energy[i - 1]:
+            raise ValueError("energy_list provided is not strictly increasing from latest to earliest epoch.")
 
-    # --- E-folds per epoch (>= 1) -------------------------------------------
-    energy_efolds_check = [E_inf] + sorted_energy + [energy_from_T(T_rstar)]
+    if T_rstar >= temp_of_E(sorted_energy[-1]):
+        raise ValueError("T_rstar >= the temperature corresponding to the beginning of the final pre-hot Big Bang epoch. Adjust energies or T_rstar.")
+    if sorted_energy[0] >= E_inf:
+        raise ValueError("The energy corresponding to the end of the first pre-hot Big Bang epoch >= E_inf. Adjust energies or E_inf or r.")
+
+    # --- E-folds per epoch ---
+    energy_boundaries = [E_inf] + sorted_energy + [energy_of_T(T_rstar)]
     efold_list = []
     for i, w in enumerate(eos_list):
-        N_e = Num_of_e_folds(w, energy_efolds_check[i], energy_efolds_check[i + 1])
-        efold_list.append(float(N_e))
+        N_e = compute_efolds(w=w, Ei=energy_boundaries[i], Ef=energy_boundaries[i + 1])
         if N_e < 1.0:
-            raise ValueError(f"Epoch {i+1} has N_e < 1. Adjust energies/EoS.")
+            raise ValueError(f"Epoch {i+1} has N_e < 1. Adjust energies or EoS.")
+        efold_list.append(float(N_e))
 
-    # --- Temperatures at transitions ----------------------------------------
-    temperature_list = vec_Temp(np.array(sorted_energy)).tolist() if sorted_energy else []
-    temperature_list.append(T_rstar)
+    # --- Temperature and EoS lists including RD, MD ---
+    T_list = temp_of_E(np.array(sorted_energy)).tolist() + [T_rstar, T_eq]
+    w_full = list(eos_list) + [1/3, 0]
+    freq_list = [freq_of_T(T) for T in T_list]
+    alpha_arr = 2.0 / (1.0 + 3.0 * np.array(w_full))
 
-    if len(temperature_list) != len(eos_list):
-        raise ValueError("Number of epochs (eos_list) must match number of transition energies/temperatures.")
+    # --- Coefficient propagation function ---
+    def _coeff(f: float) -> tuple[float, float]:
+        '''
+        Compute the Bogoliubov coefficients (A_k, B_k) in mode function at frequency f
+        by propagating through all epochs using Israel junction conditions.
+        
+        Parameters
+        ----------
+        f : float
+            Frequency in Hz.
 
-    # Append RD and MD stages
-    eos_full = list(eos_list) + [1.0/3.0, 0.0]
-    temperature_list.append(1e-9)  # T_eq placeholder (as in your original)
+        Returns
+        -------
+        tuple[float, float]
+            Bogoliubov coefficients (A_k, B_k) in the mode function at frequency f for the final matter-dominated epoch in the hot Big Bang phase.
+        '''
+        len_alpha = len(alpha_arr)
+        A_k, B_k = [0.0] * len_alpha, [0.0] * len_alpha
+        y_arr = f / np.array(freq_list)
 
-    # Frequencies at transitions
-    freq_list = [freq(T) for T in temperature_list]
-    alpha_arr = 2.0 / (1.0 + 3.0 * np.array(eos_full, dtype=float))
+        A_k[0] = 2 ** (alpha_arr[0] - 0.5) * gamma(alpha_arr[0] + 0.5)
 
-    # --- Matching coefficients across epochs --------------------------------
-    def coeff(f):
-        """Return (A_k_n, B_k_n) for the final epoch at frequency f."""
-        A_k_arr = np.zeros(len(alpha_arr))
-        B_k_arr = np.zeros(len(alpha_arr))
-        y_arr = np.zeros(len(alpha_arr) - 1)
+        for i in range(1, len_alpha):
+            a_n, a_m = alpha_arr[i], alpha_arr[i - 1]
+            y = y_arr[i - 1]
 
-        for i in range(len(y_arr)):
-            y_arr[i] = f / freq_list[i]
+            an_ym, am_ym = a_n * y, a_m * y
 
-        A_k_arr[0] = 2 ** (alpha_arr[0] - 0.5) * gamma(alpha_arr[0] + 0.5)  # Eq. (2.26)
-        B_k_arr[0] = 0.0
+            an_m_half = a_n - 0.5
+            am_m_half = a_m - 0.5
 
-        for i in range(1, len(alpha_arr)):
-            an_ym = alpha_arr[i] * y_arr[i - 1]
-            am_ym = alpha_arr[i - 1] * y_arr[i - 1]
+            an_p_half = a_n + 0.5
+            am_p_half = a_m + 0.5
 
-            an_m_half = alpha_arr[i] - 0.5
-            am_m_half = alpha_arr[i - 1] - 0.5
-            an_p_half = alpha_arr[i] + 0.5
-            am_p_half = alpha_arr[i - 1] + 0.5
 
-            C = (an_ym ** (an_m_half)) / (am_ym ** (am_m_half))  # prefactor
+            C = (an_ym ** an_m_half)/(am_ym ** am_m_half)
 
-            f_1 = mpmath.besselj(-(an_m_half), an_ym)
-            f_2 = mpmath.besselj(-(am_m_half), am_ym)
-            f_3 = mpmath.besselj(-(an_p_half), an_ym)
-            f_4 = mpmath.besselj(-(am_p_half), am_ym)
 
-            g_1 = mpmath.besselj(an_m_half, an_ym)
-            g_2 = mpmath.besselj(am_m_half, am_ym)
-            g_3 = mpmath.besselj(an_p_half, an_ym)
-            g_4 = mpmath.besselj(am_p_half, am_ym)
+            f1 = besselj(-an_m_half, an_ym)
+            f2 = besselj(-am_m_half, am_ym)
+            f3 = besselj(-an_p_half, an_ym)
+            f4 = besselj(-am_p_half, am_ym)
 
-            Deno = f_1 * g_3 + g_1 * f_3
-            K = C / Deno
+            g1 = besselj(an_m_half, an_ym)
+            g2 = besselj(am_m_half, am_ym)
+            g3 = besselj(an_p_half, an_ym)
+            g4 = besselj(am_p_half, am_ym)
 
-            Num_A1 = g_2 * f_3 + g_4 * f_1
-            Num_B1 = f_2 * f_3 - f_4 * f_1
+            D = f1 * g3 + g1 * f3
+            K = C / D
 
-            Num_A2 = g_2 * g_3 - g_4 * g_1
-            Num_B2 = f_2 * g_3 + f_4 * g_1
+            num_A1 = g2 * f3 + g4 * f1
+            num_B1 = f2 * f3 - f4 * f1
 
-            A_prev, B_prev = A_k_arr[i - 1], B_k_arr[i - 1]
-            A_k_arr[i] = K * (A_prev * Num_A1 + B_prev * Num_B1)
-            B_k_arr[i] = K * (A_prev * Num_A2 + B_prev * Num_B2)
+            num_A2 = g2 * g3 - g4 * g1
+            num_B2 = f2 * g3 + f4 * g1
 
-        return A_k_arr[-1], B_k_arr[-1]
+            A_k[i] = K * (A_k[i-1] * num_A1 + B_k[i-1] * num_B1)
+            B_k[i] = K * (A_k[i-1] * num_A2 + B_k[i-1] * num_B2)
 
-    # --- Relativistic correction at start of last RD epoch -------------------
-    G_R = (g_star_k(temperature_list[-2]) / g_star_k(T_0)) * (g_s_k(T_0) / g_s_k(temperature_list[-2])) ** (4.0 / 3.0)
-    const_coeff = (1.0 / (96.0 * (np.pi) ** 3)) * G_R * Omega_rad_0 * (H_inf / m_P) ** 2
+        return float(A_k[-1]), float(B_k[-1])
 
-    # --- Present-day Ω_GW(f) -------------------------------------------------
-    def Omega_GW_0(f):
-        y_eq = f / freq_list[-1]  # f/f_eq
-        A_k, B_k = coeff(f)
-        return const_coeff * y_eq ** (-2.0) * (A_k**2 + B_k**2)
+    # --- Normalization prefactor ---
+    G_R = (g_star(T_rstar) / g_star(T0)) * (g_s(T0) / g_s(T_rstar)) ** (4/3)
+    norm = (1.0 / (96 * np.pi**3)) * G_R * omega_rad0 * (H_inf / m_P) ** 2
 
-    vec_Omega_GW_0 = np.vectorize(Omega_GW_0)
+    def _omega_gw(f: float) -> float:
+        '''Compute Ω_GW(f) at present day for frequency f (Hz).
+        
+        Parameters
+        ----------
+        f : float
+            Frequency in Hz.
+        
+        Returns
+        -------
+        float
+            Present-day spectral energy density Ω_GW(f).
+        '''
 
-    # Frequency grid
-    f_inf = freq(Temp(E_inf))                          # present frequency for inflation scale
-    start_freq = np.log10(2.0e-20)                     # Hz
-    end_freq = np.log10(f_inf)                         # Hz
-    f_arr = np.logspace(start_freq, end_freq, num_of_points, endpoint=True, base=10.0)
+        A, B = _coeff(f)
+        return norm * (f / freq_list[-1])**(-2) * (A**2 + B**2)
 
-    Omega_GW_arr = vec_Omega_GW_0(f_arr)
+    f_inf = freq_of_T(temp_of_E(E_inf))
 
-    # Optional extras
-    out = [f_arr, Omega_GW_arr]
-    if want_freq_list:
-        freq_boundaries = [f_inf] + freq_list
-        out.append(freq_boundaries)
-    if want_efold_list:
+    f_arr = _prepare_frequency_array(f_min, f_max, f_inf, num_of_points, f_custom)
+    omega_gw_arr = np.array([_omega_gw(f) for f in f_arr], dtype=float)
+
+    out = [f_arr, omega_gw_arr]
+    if show_freqs:
+        out.append([f_inf] + freq_list[:-1])
+    if show_efolds:
         out.append(efold_list)
 
     return tuple(out)

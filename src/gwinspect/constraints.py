@@ -5,11 +5,12 @@ BBN piecewise constraint (Eq. 2.21–2.23 in the companion paper).
 
 API
 ---
-bbn_bound(
+check_bbn(
     eos_list, energy_list,
     *, E_rstar=None, T_rstar=None,        # start of hot Big Bang (≃ end of reheating), GeV
     r=None, E_inf=None,                   # provide exactly one
-    t_bbn_GeV: float | None = 1.0e-3,     # default T_BBN ≈ 1 MeV, used if f_bbn not given
+    bbn_bound = 1.13e-6                   # numeric prefactor in RHS of Eq. (2.23)
+    t_bbn_GeV: float | None = 1.0e-3,     # default T_bbn ≈ 1 MeV, used if f_bbn not given
     f_bbn: float | None = None,           # alternatively pass f_BBN directly [Hz]
     eps: float = 1e-12,                   # tolerance for handling w≈1/3 (α≈1)
     want_details: bool = False
@@ -27,9 +28,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from .bg_constant import m_P, A_S, T_0, Omega_rad_0, BBN_constraint as _BBN_NUM
-from .convert import Temp, vec_Temp, freq, energy_from_T
-from .thermo import g_star_k, g_s_k
+from .constants import m_P, A_S, T0, omega_rad0
+from .cosmo_tools import temp_of_E, freq_of_T, energy_of_T
+from .thermo import g_star, g_s
 
 
 def _alpha_from_w(w: float) -> float:
@@ -37,7 +38,7 @@ def _alpha_from_w(w: float) -> float:
     return 2.0 / (1.0 + 3.0 * w)
 
 
-def bbn_bound(
+def check_bbn(
     eos_list,
     energy_list,
     *,
@@ -47,6 +48,7 @@ def bbn_bound(
     E_inf: float | None = None,
     t_bbn_GeV: float | None = 1.0e-3,
     f_bbn: float | None = None,
+    bbn_bound: float = 1.13e-6,
     eps: float = 1e-12,
     want_details: bool = False,
 ):
@@ -107,26 +109,26 @@ def bbn_bound(
     if (T_rstar is None) == (E_rstar is None):
         raise ValueError("Provide exactly one of (T_rstar, E_rstar), in GeV.")
     if T_rstar is None:
-        T_rstar = Temp(E_rstar)
+        T_rstar = temp_of_E(E_rstar)
     if T_rstar < 1e-3:
         raise ValueError("T_rstar must be >= 1e-3 GeV.")
-    if sorted_energy and (T_rstar >= Temp(sorted_energy[-1])):
+    if sorted_energy and (T_rstar >= temp_of_E(sorted_energy[-1])):
         raise ValueError("T_rstar is >= the effective T at the end of the second-last epoch.")
 
     # ---- transition temperatures & frequencies ------------------------------
-    T_trans = np.asarray(vec_Temp(np.array(sorted_energy)), dtype=float)  # [T1, T2, ..., Tn]
-    f_trans = np.asarray([freq(T) for T in T_trans], dtype=float)         # [f1, f2, ..., fn]
-    f_rstar = freq(T_rstar)                                               # should equal fn
+    T_trans = np.asarray(temp_of_E(np.array(sorted_energy)), dtype=float)  # [T1, T2, ..., Tn]
+    f_trans = np.asarray([freq_of_T(T) for T in T_trans], dtype=float)         # [f1, f2, ..., fn]
+    f_rstar = freq_of_T(T_rstar)                                               # should equal fn
     # safety: replace last with exact f_rstar (keeps order)
     if n >= 1:
         f_trans[-1] = f_rstar
 
     # f_end (end of inflation) and f_BBN
-    f_end = freq(Temp(E_inf))
+    f_end = freq_of_T(temp_of_E(E_inf))
     if f_bbn is None:
         if t_bbn_GeV is None:
             raise ValueError("Either set f_bbn or t_bbn_GeV.")
-        f_bbn = float(freq(t_bbn_GeV))
+        f_bbn = float(freq_of_T(t_bbn_GeV))
 
     # ---- α_i and cumulative ℱ_i factors (Eq. 2.22) -------------------------
     alphas = np.array([_alpha_from_w(w) for w in eos_list], dtype=float)  # [α1..αn]
@@ -155,8 +157,8 @@ def bbn_bound(
 
     # ---- RHS bound (Eq. 2.23 + numeric prefactor) ---------------------------
     # h^2 Ω_GW^0,RD ≃ (1/24) Ω_rad,0 × (2/π^2) × (H_inf/m_P)^2
-    h2_OmegaGW0_RD = (1.0 / 24.0) * Omega_rad_0 * (2.0 / (np.pi**2)) * (H_inf / m_P) ** 2
-    rhs = _BBN_NUM * (h2_OmegaGW0_RD ** -1)
+    h2_OmegaGW0_RD = (1.0 / 24.0) * omega_rad0 * (2.0 / (np.pi**2)) * (H_inf / m_P) ** 2
+    rhs = bbn_bound * (h2_OmegaGW0_RD ** -1)
 
     passes = bool(lhs < rhs)
 
@@ -176,4 +178,4 @@ def bbn_bound(
     return float(lhs), float(rhs), passes
 
 
-__all__ = ["bbn_bound"]
+__all__ = ["check_bbn"]
