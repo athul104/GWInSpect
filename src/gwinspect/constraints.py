@@ -1,181 +1,162 @@
 # src/gwinspect/constraint.py
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""
-BBN piecewise constraint (Eq. 2.21–2.23 in the companion paper).
+'''Module to evaluate Big Bang Nucleosynthesis (BBN) constraints on gravitational wave energy density
+in multi-epoch pre-hot Big Bang cosmological scenarios.
 
-API
----
-check_bbn(
-    eos_list, energy_list,
-    *, E_rstar=None, T_rstar=None,        # start of hot Big Bang (≃ end of reheating), GeV
-    r=None, E_inf=None,                   # provide exactly one
-    bbn_bound = 1.13e-6                   # numeric prefactor in RHS of Eq. (2.23)
-    t_bbn_GeV: float | None = 1.0e-3,     # default T_bbn ≈ 1 MeV, used if f_bbn not given
-    f_bbn: float | None = None,           # alternatively pass f_BBN directly [Hz]
-    eps: float = 1e-12,                   # tolerance for handling w≈1/3 (α≈1)
-    want_details: bool = False
-) -> tuple
-    Returns (lhs_value, rhs_bound, passes) and optionally a details dict.
+Inputs:
+- Equation-of-state parameters for each epoch.
+- Energy scales marking transitions between epochs.
+- Inflation scale (tensor-to-scalar ratio or energy scale).
+- Temperature or energy scale at the end of pre-hot Big Bang phase.
 
-Conventions
------------
-- eos_list = [w1, w2, ..., wn]  (earliest → latest reheating epochs)
-- energy_list is provided as [E_{n-1}, ..., E_2, E_1] (LATEST → EARLIEST).
-  Internally we reorder to match w1..wn (high → low energy).
-"""
+Outputs:
+- Computed left-hand side value of the BBN constraint piecewise integral.
+- Boolean indicating if the BBN constraint is satisfied (LHS < bbn_bound).
+'''
+
 
 from __future__ import annotations
 
 import numpy as np
 
-from .constants import m_P, A_S, T0, omega_rad0
-from .cosmo_tools import temp_of_E, freq_of_T, energy_of_T
+from .constants import m_P, A_S, T0, omega_rad0, T_bbn
+from .cosmo_tools import temp_of_E, freq_of_T, energy_of_T, compute_efolds
 from .thermo import g_star, g_s
 
 
-def _alpha_from_w(w: float) -> float:
-    """α = 2/(1+3w)."""
-    return 2.0 / (1.0 + 3.0 * w)
 
 
 def check_bbn(
-    eos_list,
-    energy_list,
+    eos_list: list[float],
+    energy_list: list[float],
     *,
     E_rstar: float | None = None,
     T_rstar: float | None = None,
     r: float | None = None,
     E_inf: float | None = None,
-    t_bbn_GeV: float | None = 1.0e-3,
-    f_bbn: float | None = None,
     bbn_bound: float = 1.13e-6,
     eps: float = 1e-12,
-    want_details: bool = False,
 ):
-    """
-    Compute the LHS of the BBN inequality (piecewise integral) and the RHS bound.
+    """Check if a given multi-epoch pre-hot Big Bang scenario satisfies the BBN constraint on the
+    gravitational wave energy density.
 
     Parameters
     ----------
-    eos_list : sequence of floats
-        [w1, w2, ..., wn] for reheating epochs (each in [-0.28, 1)).
-    energy_list : sequence of floats
-        End energies (GeV) provided as [E_{n-1}, ..., E_2, E_1] (LATEST → EARLIEST).
-        Internally reordered (high → low) to align with w1..wn.
-    E_rstar, T_rstar : float, optional (GeV)
-        Beginning of the hot Big Bang (≃ end of reheating). Provide exactly one.
-    r, E_inf : float, optional
-        Inflation scale: provide exactly one (tensor-to-scalar ratio r, or energy E_inf [GeV]).
-    t_bbn_GeV : float, optional
-        Temperature used to set f_BBN if f_bbn is None (default 1 MeV).
-    f_bbn : float, optional
-        If given, overrides t_bbn_GeV and uses this as f_BBN [Hz].
+    eos_list : list of float
+        Equation-of-state values [w_1, ..., w_n] for pre-hot Big Bang epochs. Each w ∈ [-0.28, 1).
+    energy_list : list of float
+        List of end energies [E_{n-1}, ..., E_2, E_1] (in GeV), provided from latest to earliest pre-hot Big Bang epoch.
+        This list does not include the energy scale at the end of pre-hot Big Bang (E_rstar).
+        If pre-hot Big Bang has n epochs, energy_list must have length n-1.
+        For single equation-of-state epoch (n=1), provide an empty list [].
+    E_rstar, T_rstar : float
+        Energy scale (E_rstar) or temperature (T_rstar) in GeV marking the beginning of the hot Big Bang (≃ end of reheating).
+        You must specify exactly one of these. If both are provided, T_rstar is used.
+    r, E_inf : float
+        Inflation scale: tensor-to-scalar ratio (r) at k*=0.05 Mpc^-1 or energy scale during inflation (E_inf) in GeV.
+        You must specify exactly one of these. If both are provided, r is used.
+    bbn_bound : float
+        Upper bound on the gravitational wave energy density from BBN constraints. Default is 1.13e-6.
     eps : float
-        Tolerance for treating w≈1/3 (α≈1) with the log-limit.
-    want_details : bool
-        If True, also return a dict with intermediate arrays for debugging.
+        Tolerance value for numerical stability in calculations. If abs(alpha - 1.0) < eps during any epoch, logarithmic limit is used.
+        Default is 1e-12.
 
     Returns
     -------
-    lhs_value : float
-        Value of the left-hand side in Eq. (2.21).
-    rhs_bound : float
-        Value of the right-hand side (1.13e-6 × (h^2 Ω_GW^0,RD)^(-1)).
-    passes : bool
-        True iff lhs_value < rhs_bound.
-    details : dict, optional
-        Returned only if want_details=True (contains alphas, F_i, f-list, etc.).
+    piecewise integral : float
+        Computed left-hand side value of the BBN constraint piecewise integral.
+    if_satisfied : bool
+        True if the BBN constraint is satisfied (LHS < bbn_bound), False otherwise.
     """
-    # ---- inflation scale from (r or E_inf) ---------------------------------
+    
+ 
+
+    if len(eos_list) != len(energy_list) + 1:
+        raise ValueError("Length mismatch: len(energy_list) must be len(eos_list) - 1.")
+
+    # --- Inflation scale: H_inf, E_inf ---
     if (r is None) == (E_inf is None):
         raise ValueError("Provide exactly one of (r, E_inf).")
     if r is not None:
         if r >= 0.036:
             raise ValueError("r exceeds the current bound (< 0.036).")
         H_inf = m_P * np.pi * np.sqrt(A_S * r / 2.0)
-        E_inf = 3.0 ** 0.25 * np.sqrt(m_P * H_inf)
+        E_inf = (3.0**0.25) * np.sqrt(m_P * H_inf)
     else:
-        if E_inf >= 1.39e16:
-            raise ValueError("E_inf exceeds the current bound (< 1.39e16 GeV).")
+        if E_inf >= 1.4e16:
+            raise ValueError("E_inf exceeds the current bound (< 1.4e16 GeV), corresponding to r < 0.036).")
         H_inf = E_inf**2 / (np.sqrt(3.0) * m_P)
 
-    # ---- reorder energies latest→earliest  → earliest→latest ----------------
-    sorted_energy = sorted(energy_list, reverse=True)  # high → low, matches w1..wn
-    n = len(eos_list)
-    if len(sorted_energy) != n:
-        raise ValueError("eos_list and energy_list must have the same length.")
+    # --- EoS validation ---
+    for i, w in enumerate(eos_list):
+        if not (-0.28 <= w < 1.0):
+            raise ValueError(f"Equation of state, w, provided in eos_list at position {i+1} is out of bounds [-0.28, 1).")
 
-    # ---- T_r* from (T_rstar or E_rstar) ------------------------------------
+    # --- Reheating end: T_rstar ---
     if (T_rstar is None) == (E_rstar is None):
-        raise ValueError("Provide exactly one of (T_rstar, E_rstar), in GeV.")
+        raise ValueError("Provide exactly one of (T_rstar, E_rstar).")
     if T_rstar is None:
         T_rstar = temp_of_E(E_rstar)
-    if T_rstar < 1e-3:
-        raise ValueError("T_rstar must be >= 1e-3 GeV.")
-    if sorted_energy and (T_rstar >= temp_of_E(sorted_energy[-1])):
-        raise ValueError("T_rstar is >= the effective T at the end of the second-last epoch.")
+    if T_rstar < T_bbn:
+        raise ValueError(f"The temperature corresponding to the end of pre-hot Big Bang phase, T_rstar, is below BBN temperature ({T_bbn} GeV).")
 
-    # ---- transition temperatures & frequencies ------------------------------
-    T_trans = np.asarray(temp_of_E(np.array(sorted_energy)), dtype=float)  # [T1, T2, ..., Tn]
-    f_trans = np.asarray([freq_of_T(T) for T in T_trans], dtype=float)         # [f1, f2, ..., fn]
-    f_rstar = freq_of_T(T_rstar)                                               # should equal fn
-    # safety: replace last with exact f_rstar (keeps order)
-    if n >= 1:
-        f_trans[-1] = f_rstar
 
-    # f_end (end of inflation) and f_BBN
-    f_end = freq_of_T(temp_of_E(E_inf))
-    if f_bbn is None:
-        if t_bbn_GeV is None:
-            raise ValueError("Either set f_bbn or t_bbn_GeV.")
-        f_bbn = float(freq_of_T(t_bbn_GeV))
 
-    # ---- α_i and cumulative ℱ_i factors (Eq. 2.22) -------------------------
-    alphas = np.array([_alpha_from_w(w) for w in eos_list], dtype=float)  # [α1..αn]
+    # --- Reorder energies: latest → earliest input → time-ordered (high → low) ---
+    sorted_energy = sorted(energy_list, reverse=True)
+    for i in range(1, len(sorted_energy)):
+        if sorted_energy[i] >= sorted_energy[i - 1]:
+            raise ValueError("energy_list provided is not strictly increasing from latest to earliest epoch.")
 
-    # ℱ_n = 1. For i<n: ℱ_i = (f_i/f_{i+1})^{2(1-α_{i+1})} * ℱ_{i+1}
-    F = np.ones(n, dtype=float)
-    for i in range(n - 2, -1, -1):
-        alpha_next = alphas[i + 1]
-        F[i] = F[i + 1] * (f_trans[i] / f_trans[i + 1]) ** (2.0 * (1.0 - alpha_next))
+    if T_rstar >= temp_of_E(sorted_energy[-1]):
+        raise ValueError("T_rstar >= the temperature corresponding to the beginning of the final pre-hot Big Bang epoch. Adjust energies or T_rstar.")
+    if sorted_energy[0] >= E_inf:
+        raise ValueError("The energy corresponding to the end of the first pre-hot Big Bang epoch >= E_inf. Adjust energies or E_inf or r.")
 
-    # ---- LHS of Eq. (2.21) --------------------------------------------------
-    lhs = np.log(f_rstar / f_bbn)  # RD piece (α=1)
+    # --- E-folds per epoch ---
+    energy_boundaries = [E_inf] + sorted_energy + [energy_of_T(T_rstar)]
+    for i, w in enumerate(eos_list):
+        N_e = compute_efolds(w=w, Ei=energy_boundaries[i], Ef=energy_boundaries[i + 1])
+        if N_e < 1.0:
+            raise ValueError(f"Epoch {i+1} has N_e < 1. Adjust energies or EoS.")
 
-    # sum terms: i = n .. 1  (our index j = i-1 from n-1 down to 0)
-    for j in range(n - 1, -1, -1):
-        alpha_i = alphas[j]
-        f_lower = f_trans[j]
-        f_upper = f_end if j == 0 else f_trans[j - 1]  # f_{i-1}
-        if abs(1.0 - alpha_i) < eps:
-            # limit α_i → 1  ⇒  F_i * ln(f_{i-1}/f_i)
-            term = F[j] * np.log(f_upper / f_lower)
+
+    # --- Temperature and EoS list ---
+    T_list = temp_of_E(np.array(energy_boundaries))  # [T_inf, T1, T2, ..., Tn = T_rstar]
+    freq_list = [freq_of_T(T) for T in T_list] # [f_inf, f1, f2, ..., fn = f_rstar]
+    alpha_arr = 2.0 / (1.0 + 3.0 * np.array(eos_list))  # [α1, α2, ..., αn]
+    f_bbn  = freq_of_T(T_bbn) # BBN frequency [Hz]
+
+    omega_gw_rad0 = 1/12 * (H_inf / (np.pi * m_P))**2 * omega_rad0 # h^2 \Omega_gw during radiation era
+
+    cal_F_arr = [1] * len(eos_list)  # F_i factors
+    for i in range(len(alpha_arr) - 1):
+        for j in range(i + 1, len(eos_list)):
+            cal_F_arr[i] *= (freq_list[j] / freq_list[j + 1])**(2 * (1 - alpha_arr[j]))
+
+    # --- LHS integral ---
+    lhs_value = 0.0
+    for i, alpha in enumerate(alpha_arr):
+        f_in = freq_list[i]
+        f_fi   = freq_list[i + 1]
+        cal_F   = cal_F_arr[i]
+
+        if abs(alpha - 1.0) < eps:
+            # log-limit
+            integral_piece = cal_F * np.log(f_in / f_fi)
         else:
-            expo = 2.0 * (1.0 - alpha_i)
-            term = F[j] / (2.0 * (1.0 - alpha_i)) * ((f_upper / f_lower) ** expo - 1.0)
-        lhs += term
+            integral_piece = cal_F / (2 * (1 - alpha)) * ((f_in / f_fi)**(2 * (1 - alpha)) - 1.0)
 
-    # ---- RHS bound (Eq. 2.23 + numeric prefactor) ---------------------------
-    # h^2 Ω_GW^0,RD ≃ (1/24) Ω_rad,0 × (2/π^2) × (H_inf/m_P)^2
-    h2_OmegaGW0_RD = (1.0 / 24.0) * omega_rad0 * (2.0 / (np.pi**2)) * (H_inf / m_P) ** 2
-    rhs = bbn_bound * (h2_OmegaGW0_RD ** -1)
+        lhs_value +=  integral_piece
+    
+    lhs_value += np.log(freq_list[-1] / f_bbn)  # final radiation-dominated part
+    lhs_value *= omega_gw_rad0
+    rhs_bound = bbn_bound
+    
+    return_values = (lhs_value, lhs_value < rhs_bound)
 
-    passes = bool(lhs < rhs)
+    return return_values
 
-    if want_details:
-        details = dict(
-            alphas=alphas,
-            F=F,
-            T_trans=T_trans,
-            f_trans=f_trans,
-            f_end=f_end,
-            f_rstar=f_rstar,
-            f_bbn=f_bbn,
-            H_inf=H_inf,
-            h2_OmegaGW0_RD=h2_OmegaGW0_RD,
-        )
-        return float(lhs), float(rhs), passes, details
-    return float(lhs), float(rhs), passes
 
 
 __all__ = ["check_bbn"]
