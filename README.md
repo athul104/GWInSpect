@@ -70,9 +70,9 @@ Convert temperature to present-day frequency of gravitational waves
 Compute the duration of each epoch in terms of number of $e$-folds
 
 * ```thermo.py```
-    * Uses tabulated $g_{*}(T), \, g_{s}(T)$ from ```data/eff_rel_dof.txt```
+    * Uses tabulated $g_{*}(T),  g_{s}(T)$ from ```data/eff_rel_dof.txt```
     * Key functions: ```g_star``` and ```g_s```
-    * Users can load the data used to compute $g_{*}(T), \, g_{s}(T)$ using ```load_eff_rel_dof```
+    * Users can load the data used to compute $g_{*}(T),  g_{s}(T)$ using ```load_eff_rel_dof```
     * Users can also use their own preferred data for relativistic degrees of freedom using ```set_custom_eff_rel_dof```
 
 * ```constants.py```
