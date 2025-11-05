@@ -67,7 +67,7 @@ Convert energy scale to temperature
     * ```freq_of_T```
 Convert temperature to present-day frequency of gravitational waves
     * ```compute_efolds```
-Compute the duration of each epoch in terms if number of $e$-folds
+Compute the duration of each epoch in terms of number of $e$-folds
 
 * ```thermo.py```
     * Uses tabulated $g_{*}(T), \, g_{s}(T)$ from ```data/eff_rel_dof.txt```
