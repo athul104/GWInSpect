@@ -10,8 +10,8 @@
 
 **GWInSpect** is a lightweight, research-grade Python package that computes:
 
-- The **present-day spectral energy density** of first-order inflationary gravitational waves, $\Omega_{\rm GW}(f) $, produced by a user-defined post-inflationary expansion history.
-- Whether the **BBN constraint** on total gravitational wave energy density is satisfied.
+- The **present-epoch spectral energy density** of first-order inflationary gravitational waves, $\Omega_{\rm GW}(f) $, produced by a given (user-defined) post-inflationary expansion history.
+- Verifies whether the **BBN constraint** on total (integrated) gravitational wave energy density is satisfied.
 
 A full tutorial notebook is included under [`examples/tutorial_gwinspect.ipynb`](examples/tutorial_gwinspect.ipynb).
 
@@ -52,14 +52,14 @@ Each module is independently documented and demonstrated in the tutorial noteboo
 
 * ```spectrum.py```
     * ```compute_omega_gw```  
-Computes $\Omega_{\rm GW}(f)$ for user defined post-inflationary scenario consisting of multiple epochs during pre-hot Big Bang phase with different constant equations of state. 
+Computes $\Omega_{\rm GW}(f)$ for a user defined post-inflationary history of the Universe consisting of a sequence of pre-hot Big Bang epochs, each with a constant equation of state. 
 
 * ```constraints.py```
     * ```check_bbn```  
-Computes BBN constraint integral piecewise for the user defined post-inflationary scenario.
+Computes BBN constraint integral piecewise for the user defined sequence of post-inflationary epochs.
 
 * ```cosmo_tools.py```
-Utilities for cosmological conversions:
+Utilities for cosmological parameter conversions:
     * ```temp_of_E```
 Convert temperature to energy scale
     * ```energy_of_T```
@@ -67,7 +67,7 @@ Convert energy scale to temperature
     * ```freq_of_T```
 Convert temperature to present-day frequency of gravitational waves
     * ```compute_efolds```
-Compute number of $e$-folds extended during an epoch
+Compute the duration of each epoch in terms if number of $e$-folds
 
 * ```thermo.py```
     * Uses tabulated $g_{*}(T), \, g_{s}(T)$ from ```data/eff_rel_dof.txt```
