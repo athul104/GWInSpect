@@ -1,91 +1,46 @@
 # src/gwinspect/thermo.py
 # SPDX-License-Identifier: GPL-3.0-or-later
 """
-Load g*(T) and g_s(T) tables and provide floor-based lookups.
+Thermodynamics utilities for effective relativistic degrees of freedom.
 
-Data file (packaged with the wheel):
-    gwinspect/data/eff_rel_dof.txt
+This module computes tabulated or fitted values of:
+    - g_star(T): Effective degrees of freedom in energy density
+    - g_s(T): Effective degrees of freedom in entropy density
 
-Format:
-    Three numeric columns: T [GeV], g_star(T), g_s(T)
-Order:
-    Temperatures listed from HIGH to LOW (descending). We KEEP this order.
-
-API:
-    load_eff_rel_dof() -> (Temp_in_GeV, g_star_tab, g_s_tab)
-    g_star(T)           -> value at the largest tabulated T <= query T
-    g_s(T)              -> value at the largest tabulated T <= query T
-    set_custom_eff_rel_dof(...)  -> provide user-defined data
+It includes routines for loading data from `eff_rel_dof.txt`, computing
+fitting functions, and generating updated tables.
 """
 
 from __future__ import annotations
-
-from functools import lru_cache
-import numpy as np
 import os
+from typing import Union, Sequence
+
+import numpy as np
+
+# ----------------------------------------------------------------------------
+# Data Loader
+# ----------------------------------------------------------------------------
 
 try:
     from importlib.resources import files as _files  # Python 3.9+
 except Exception:
     _files = None
 
-# Global variable to hold custom data, if set
-_custom_eff_rel_dof: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None
-
-
-def set_custom_eff_rel_dof(data: str | np.ndarray | list | tuple) -> None:
+def load_eff_rel_dof() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
-    Register a user-supplied table of [T, g_star, g_s].
-
-    Parameters
-    ----------
-    data : str or array-like
-        Either a file path (to .txt or .csv) or a NumPy array/nested list.
-        Must be of shape (N, 3), where columns are T [GeV], g_star(T), g_s(T).
-        Temperatures must be strictly positive, descending order preferred.
-    """
-    global _custom_eff_rel_dof
-
-    if isinstance(data, str):
-        if not os.path.isfile(data):
-            raise FileNotFoundError(f"No such file: {data}")
-        try:
-            raw = np.loadtxt(data, dtype=float)
-        except ValueError:
-            try:
-                raw = np.loadtxt(data, dtype=float, skiprows=1)
-            except Exception as e:
-                raise ValueError(f"Could not parse file with or without header: {e}")
-    else:
-        raw = np.asarray(data, dtype=float)
-
-    if raw.ndim != 2 or raw.shape[1] != 3:
-        raise ValueError("Input must be a 2D array with exactly 3 columns: T, g_star, g_s")
-
-    T, g1, g2 = raw[:, 0], raw[:, 1], raw[:, 2]
-    if np.any(T <= 0) or np.any(~np.isfinite(T)) or np.any(~np.isfinite(g1)) or np.any(~np.isfinite(g2)):
-        raise ValueError("All values must be finite; temperatures must be > 0.")
-
-    _custom_eff_rel_dof = (T, g1, g2)
-    load_eff_rel_dof.cache_clear()
-
-
-@lru_cache(maxsize=None)
-def load_eff_rel_dof() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Load the [T, g_star, g_s] table, either from built-in data or user-supplied values.
+    Load the table of temperature, g_star, g_s, and energy values.
 
     Returns
     -------
-    Temp_in_GeV : (N,) float ndarray
-    g_star_tab  : (N,) float ndarray
-    g_s_tab     : (N,) float ndarray
+    Temp_in_GeV : ndarray
+        Temperature values [GeV].
+    g_star_tab : ndarray
+        Effective energy degrees of freedom.
+    g_s_tab : ndarray
+        Effective entropy degrees of freedom.
+    Energy_in_GeV : ndarray
+        Corresponding energy scales [GeV].
     """
-    global _custom_eff_rel_dof
-
-    if _custom_eff_rel_dof is not None:
-        return _custom_eff_rel_dof
-
     if _files is None:
         raise RuntimeError("importlib.resources is unavailable on this Python.")
 
@@ -96,82 +51,172 @@ def load_eff_rel_dof() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     except ValueError:
         raw = np.loadtxt(str(path), dtype=float, skiprows=1)
 
-    if raw.ndim != 2 or raw.shape[1] < 3:
-        raise ValueError("eff_rel_dof.txt must have at least 3 numeric columns.")
+    if raw.ndim != 2 or raw.shape[1] != 4:
+        raise ValueError("eff_rel_dof.txt must have 4 numeric columns.")
 
-    Temp_in_GeV = raw[:, 0].astype(float)
-    g_star_tab  = raw[:, 1].astype(float)
-    g_s_tab     = raw[:, 2].astype(float)
+    Temp_in_GeV = raw[:, 0]
+    g_star_tab = raw[:, 1]
+    g_s_tab = raw[:, 2]
+    energy_in_GeV = raw[:, 3]
 
-    if np.any(~np.isfinite(Temp_in_GeV)) or np.any(Temp_in_GeV <= 0):
-        raise ValueError("Temperature column must be positive, finite (GeV).")
-    if np.any(~np.isfinite(g_star_tab)) or np.any(~np.isfinite(g_s_tab)):
-        raise ValueError("g* columns contain non-finite values.")
+    return Temp_in_GeV, g_star_tab, g_s_tab, energy_in_GeV
 
-    return Temp_in_GeV, g_star_tab, g_s_tab
+# ----------------------------------------------------------------------------
+# Physical Mass Constants (GeV)
+# ----------------------------------------------------------------------------
+m_e = 511e-6
+m_mu = 0.1056
+m_pi0 = 0.135
+m_pipm = 0.140
+m_1, m_2, m_3, m_4 = 0.5, 0.77, 1.2, 2.0
+
+ArrayLike = Union[float, Sequence[float], np.ndarray]
+
+def _return_like_input(x, y):
+    return y.item() if np.isscalar(x) else y
+
+# ----------------------------------------------------------------------------
+# Fitting functions
+# ----------------------------------------------------------------------------
+def f_rho(x):
+    x = np.asarray(x)
+    return _return_like_input(x, np.exp(-1.04855 * x) * (1 + 1.03757*x + 0.508630*x**2 + 0.0893988*x**3))
+
+def b_rho(x):
+    x = np.asarray(x)
+    return _return_like_input(x, np.exp(-1.03149 * x) * (1 + 1.03317*x + 0.398264*x**2 + 0.0648056*x**3))
+
+def f_s(x):
+    x = np.asarray(x)
+    return _return_like_input(x, np.exp(-1.04190 * x) * (1 + 1.03400*x + 0.456426*x**2 + 0.0595248*x**3))
+
+def b_s(x):
+    x = np.asarray(x)
+    return _return_like_input(x, np.exp(-1.03365 * x) * (1 + 1.03397*x + 0.342548*x**2 + 0.0506182*x**3))
+
+def S_fit(x):
+    x = np.asarray(x)
+    return _return_like_input(x, 1 + (7/4) * np.exp(-1.0419 * x) * (1 + 1.034*x + 0.456426*x**2 + 0.0595249*x**3))
+
+# ----------------------------------------------------------------------------
+# Fit Coefficients
+# ----------------------------------------------------------------------------
+a_arr = np.array([1.0, 1.11724, 0.312672, -0.0468049, -0.0265004, -0.0011976,
+                  0.000182812, 0.000136436, 8.55051e-05, 1.2284e-05, 3.82259e-07, -6.87035e-09])
+
+b_arr = np.array([0.0143382, 0.0137559, 0.00292108, -0.000538533, -0.000162496,
+                  -2.87906e-05, -3.84278e-06, 2.78776e-06, 7.40342e-07, 1.1721e-07,
+                  3.72499e-09, -6.74107e-11])
+
+c_arr = np.array([1.0, 0.607869, -0.154485, -0.224034, -0.0282147, 0.029062,
+                  0.00686778, -0.00100005, -0.000169104, 1.06301e-05,
+                  1.69528e-06, -9.33311e-08])
+
+d_arr = np.array([70.7388, 91.8011, 33.1892, -1.39779, -1.52558, -0.0197857,
+                  -0.160146, 8.22615e-05, 0.0202651, -1.82134e-05,
+                  7.83943e-05, 7.13518e-05])
 
 
-def _floor_indices_desc(T_desc: np.ndarray, Tq_array: np.ndarray) -> np.ndarray:
+def _poly_ratio(t, num, den):
+    return np.polyval(num[::-1], t) / np.polyval(den[::-1], t)
+
+# ----------------------------------------------------------------------------
+# Main Functions
+# ----------------------------------------------------------------------------
+def g_star(T: ArrayLike) -> np.ndarray | float:
+    """Return g_star(T) via analytical fit."""
+    Tin = T
+    T = np.asarray(T, dtype=float)
+    out = np.empty_like(T)
+
+    mask_hi = (T >= 0.12) & (T <= 1e16)
+    mask_lo = (T >= 0.0) & (T < 0.12)
+
+    if mask_hi.any():
+        t = np.log(T[mask_hi])
+        out[mask_hi] = _poly_ratio(t, a_arr, b_arr)
+
+    if mask_lo.any():
+        Tl = T[mask_lo]
+        out[mask_lo] = (
+            2.030
+            + 1.353 * (S_fit(m_e / Tl)) ** (4 / 3)
+            + 3.495 * f_rho(m_e / Tl)
+            + 3.446 * f_rho(m_mu / Tl)
+            + 1.05  * b_rho(m_pi0 / Tl)
+            + 2.08  * b_rho(m_pipm / Tl)
+            + 4.165 * b_rho(m_1 / Tl)
+            + 30.55 * b_rho(m_2 / Tl)
+            + 89.4  * b_rho(m_3 / Tl)
+            + 8209  * b_rho(m_4 / Tl)
+        )
+
+    out[T < 0] = np.nan
+    return _return_like_input(Tin, out)
+
+def g_s(T: ArrayLike) -> np.ndarray | float:
+    """Return g_s(T) via analytical fit."""
+    Tin = T
+    T = np.asarray(T, dtype=float)
+    out = np.empty_like(T)
+
+    mask_hi = T >= 0.12
+    mask_lo = (T >= 0.0) & (T < 0.12)
+
+    if mask_hi.any():
+        t = np.log(T[mask_hi])
+        frac = _poly_ratio(t, c_arr, d_arr)
+        out[mask_hi] = g_star(T[mask_hi]) / (1 + frac)
+
+    if mask_lo.any():
+        Tl = T[mask_lo]
+        out[mask_lo] = (
+            2.008
+            + 1.923 * S_fit(m_e / Tl)
+            + 3.442 * f_s(m_e / Tl)
+            + 3.468 * f_s(m_mu / Tl)
+            + 1.034 * b_s(m_pi0 / Tl)
+            + 2.068 * b_s(m_pipm / Tl)
+            + 4.16  * b_s(m_1 / Tl)
+            + 30.55 * b_s(m_2 / Tl)
+            + 90.0  * b_s(m_3 / Tl)
+            + 6209  * b_s(m_4 / Tl)
+        )
+
+    out[T < 0] = np.nan
+    return _return_like_input(Tin, out)
+
+def energy_of_T(T: ArrayLike) -> np.ndarray | float:
     """
-    Return indices of floor values in descending temperature grid.
+    Convert temperature [GeV] to effective energy scale [GeV].
 
     Parameters
     ----------
-    T_desc : (N,) array-like
-        Temperature grid in descending order.
-    Tq_array : array-like
-        Query temperatures.
+    T : float or array-like
+        Temperature in GeV.
 
     Returns
     -------
-    np.ndarray
-        Indices i such that T_desc[i] <= Tq.
+    float or ndarray
+        Effective energy scale(s).
     """
-    T_asc = T_desc[::-1]
-    n = T_asc.size
-    idx_asc = np.searchsorted(T_asc, Tq_array, side="right") - 1
-    idx_asc = np.clip(idx_asc, 0, n - 1)
-    return (n - 1) - idx_asc
+    is_scalar = np.isscalar(T)
+    T = np.asarray(T, dtype=float)
+    g = g_star(T)
+    E = T * (np.pi**2 * g / 30.0) ** 0.25
+    return float(E) if is_scalar else E
 
+# ----------------------------------------------------------------------------
+# Optional: Generate updated table manually
+# ----------------------------------------------------------------------------
+if __name__ == '__main__':
+    t_list = np.logspace(-13, 16, 1000)
+    g_star_arr = g_star(t_list)
+    g_s_arr = g_s(t_list)
+    energy_arr = energy_of_T(t_list)
 
-def g_star(T: np.ndarray | float) -> np.ndarray | float:
-    """
-    Return g_star(T) from tabulated values using floor match.
-
-    Parameters
-    ----------
-    T : float or array-like (GeV)
-
-    Returns
-    -------
-    float or np.ndarray
-        g_star(T), matched to largest tabulated T <= query T
-    """
-    Temp_in_GeV, g_star_tab, _ = load_eff_rel_dof()
-    Tq = np.atleast_1d(np.asarray(T, dtype=float))
-    idx = _floor_indices_desc(Temp_in_GeV, Tq)
-    out = g_star_tab[idx]
-    return float(out[0]) if np.isscalar(T) else out
-
-
-def g_s(T: np.ndarray | float) -> np.ndarray | float:
-    """
-    Return g_s(T) from tabulated values using floor match.
-
-    Parameters
-    ----------
-    T : float or array-like (GeV)
-
-    Returns
-    -------
-    float or np.ndarray
-        g_s(T), matched to largest tabulated T <= query T
-    """
-    Temp_in_GeV, _, g_s_tab = load_eff_rel_dof()
-    Tq = np.atleast_1d(np.asarray(T, dtype=float))
-    idx = _floor_indices_desc(Temp_in_GeV, Tq)
-    out = g_s_tab[idx]
-    return float(out[0]) if np.isscalar(T) else out
-
-
-__all__ = ["load_eff_rel_dof", "g_star", "g_s", "set_custom_eff_rel_dof"]
+    data = np.column_stack((t_list, g_star_arr, g_s_arr, energy_arr))
+    os.makedirs("data", exist_ok=True)
+    with open("data/eff_rel_dof.txt", "w") as f:
+        f.write("temperature[GeV]    g_star    g_s    energy[GeV]\n")
+        np.savetxt(f, data, fmt="%.6e")

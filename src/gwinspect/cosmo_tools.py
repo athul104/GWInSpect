@@ -6,7 +6,7 @@ and present-day GW frequency f [Hz].
 
 Relies on:
 - constants.py : T0 (GeV), m_P, omega_rad0, A_S
-- thermo.py    : g_star(T), g_s(T) (table ordered high→low T)
+- thermo.py    : g_star(T), g_s(T)
 
 Public API:
     temp_of_E(E)         -> T from tabulated inverse energy relation
@@ -47,15 +47,18 @@ def energy_of_T(T: ArrayLike) -> np.ndarray | float:
 
 def _get_energy_grid():
     """
-    Load current (T, E) grids based on latest g*(T).
+    Load (T, E) from a stored eff_rel_dof.txt in data.
+    temp_grid = np.logspace(-13, 16, 1000, base = 10)
+    energy_grid = energy_of_T(temp_grid)
 
     Returns
     -------
     tuple[np.ndarray, np.ndarray]
         Temperature and corresponding energy arrays.
     """
-    temp_grid = load_eff_rel_dof()[0]
-    energy_grid = energy_of_T(temp_grid)
+
+    temp_grid, _, _, energy_grid = load_eff_rel_dof()
+
     return temp_grid, energy_grid
 
 def _floor_index_in_energy(E: np.ndarray) -> np.ndarray:
@@ -73,17 +76,16 @@ def _floor_index_in_energy(E: np.ndarray) -> np.ndarray:
         Floor indices.
     """
     temp_grid, energy_grid = _get_energy_grid()
-    E = np.atleast_1d(np.asarray(E, dtype=float))
-    E_asc = energy_grid[::-1]  # ascending order
+    E_asc = np.atleast_1d(np.asarray(E, dtype=float))
     n = E_asc.size
     idx_asc = np.searchsorted(E_asc, E, side="right") - 1
     idx_asc = np.clip(idx_asc, 0, n - 1)
-    return (n - 1) - idx_asc
+    return idx_asc
 
 def temp_of_E(E: ArrayLike) -> np.ndarray | float:
     """
     Convert energy scale [GeV] to temperature [GeV].
-    Uses inverse of energy_of_T(T) with tabulated floor matching.
+    Uses inverse of energy_of_T(T) with tabulated floor matching from data/eff_rel_dof.txt.
 
     Parameters
     ----------
