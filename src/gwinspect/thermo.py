@@ -35,9 +35,9 @@ def load_eff_rel_dof() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     Temp_in_GeV : ndarray
         Temperature values [GeV].
     g_star_tab : ndarray
-        Effective energy degrees of freedom.
+        Effective relativistic degrees of freedom in energy density.
     g_s_tab : ndarray
-        Effective entropy degrees of freedom.
+        Effective relativistic degrees of freedom in entropy density.
     Energy_in_GeV : ndarray
         Corresponding energy scales [GeV].
     """
@@ -124,7 +124,28 @@ def _poly_ratio(t, num, den):
 # Main Functions
 # ----------------------------------------------------------------------------
 def g_star(T: ArrayLike) -> np.ndarray | float:
-    """Return g_star(T) via analytical fit."""
+    """
+    Compute the effective number of relativistic degrees of freedom in energy density, gₛₜₐᵣ(T),
+    using an analytic fit consistent with lattice + perturbative results.
+
+    Parameters
+    ----------
+    T : float or array-like
+        Temperature(s) in GeV. Must be ≥ 0. For T > 1e16 GeV, the fit is not validated and returns NaN.
+
+    Returns
+    -------
+    float or np.ndarray
+        Corresponding gₛₜₐᵣ(T) values. Returns a float if the input is scalar; otherwise a NumPy array.
+
+
+    Reference
+    ---------
+    K. Saikawa and S. Shirai,  
+    "Primordial gravitational waves, precisely: The role of thermodynamics in the Standard Model",  
+    JCAP 05 (2018) 035, [arXiv:1803.01038](https://arxiv.org/abs/1803.01038).
+    """
+
     Tin = T
     T = np.asarray(T, dtype=float)
     out = np.empty_like(T)
@@ -152,15 +173,37 @@ def g_star(T: ArrayLike) -> np.ndarray | float:
         )
 
     out[T < 0] = np.nan
+    out[T > 1e16] = np.nan
     return _return_like_input(Tin, out)
 
 def g_s(T: ArrayLike) -> np.ndarray | float:
-    """Return g_s(T) via analytical fit."""
+    """
+    Compute the effective number of relativistic degrees of freedom in entropy density, gₛ(T),
+    using an analytic fit consistent with lattice + perturbative results.
+
+    Parameters
+    ----------
+    T : float or array-like
+        Temperature(s) in GeV. Must be ≥ 0. For T > 1e16 GeV, the fit is not validated and returns NaN.
+
+    Returns
+    -------
+    float or np.ndarray
+        Corresponding gₛ(T) values. Returns a float if the input is scalar; otherwise a NumPy array.
+
+
+    Reference
+    ---------
+    K. Saikawa and S. Shirai,  
+    "Primordial gravitational waves, precisely: The role of thermodynamics in the Standard Model",  
+    JCAP 05 (2018) 035, [arXiv:1803.01038](https://arxiv.org/abs/1803.01038).
+    """
+
     Tin = T
     T = np.asarray(T, dtype=float)
     out = np.empty_like(T)
 
-    mask_hi = T >= 0.12
+    mask_hi = (T >= 0.12) & (T <= 1e16)
     mask_lo = (T >= 0.0) & (T < 0.12)
 
     if mask_hi.any():
@@ -184,6 +227,7 @@ def g_s(T: ArrayLike) -> np.ndarray | float:
         )
 
     out[T < 0] = np.nan
+    out[T > 1e16] = np.nan
     return _return_like_input(Tin, out)
 
 def energy_of_T(T: ArrayLike) -> np.ndarray | float:
