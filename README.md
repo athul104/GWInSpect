@@ -70,10 +70,9 @@ Convert temperature to present-day frequency of gravitational waves
 Compute the duration of each epoch in terms of number of $e$-folds
 
 * ```thermo.py```
-    * Uses tabulated $g_{*}(T),  g_{s}(T)$ from ```data/eff_rel_dof.txt```
+    * Functions to compute $g_{*}(T),  g_{s}(T)$ from fitting functions given in **K. Saikawa and S. Shirai** [arXiv:1803.01038](https://arxiv.org/abs/1803.01038).
     * Key functions: ```g_star``` and ```g_s```
-    * Users can load the data used to compute $g_{*}(T),  g_{s}(T)$ using ```load_eff_rel_dof```
-    * Users can also use their own preferred data for relativistic degrees of freedom using ```set_custom_eff_rel_dof```
+    * Users can also load the pre-computed data of [temperature $T$, $g_{*}(T)$, $g_{s}(T)$, energy($T$)] stored in ```src\gwinspect\data\eff_rel_dof.txt``` using ```load_eff_rel_dof()```
 
 * ```constants.py```
     * Contains constants: reduced Planck mass ```m_P```, present CMB temperature ```T0```, scalar amplitude ```A_S```, Present radiation density parameter ```omega_rad0```, BBN temperature ```T_bbn```, matter-radiation equality temperature ```T_eq```
