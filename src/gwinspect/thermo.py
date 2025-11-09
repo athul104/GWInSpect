@@ -254,7 +254,7 @@ def energy_of_T(T: ArrayLike) -> np.ndarray | float:
 # Optional: Generate updated table manually
 # ----------------------------------------------------------------------------
 if __name__ == '__main__':
-    t_list = np.logspace(-13, 16, 1000)
+    t_list = np.logspace(-13, 16, 100000)
     g_star_arr = g_star(t_list)
     g_s_arr = g_s(t_list)
     energy_arr = energy_of_T(t_list)
