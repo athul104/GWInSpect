@@ -12,7 +12,6 @@ fitting functions, and generating updated tables.
 """
 
 from __future__ import annotations
-import os
 from typing import Union, Sequence
 
 import numpy as np
@@ -260,7 +259,6 @@ if __name__ == '__main__':
     energy_arr = energy_of_T(t_list)
 
     data = np.column_stack((t_list, g_star_arr, g_s_arr, energy_arr))
-    # os.makedirs("data", exist_ok=True)
     with open("src/gwinspect/data/eff_rel_dof.txt", "w") as f:
         f.write("temperature[GeV]    g_star    g_s    energy[GeV]\n")
         np.savetxt(f, data, fmt="%.6e")

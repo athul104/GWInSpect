@@ -45,25 +45,11 @@ def energy_of_T(T: ArrayLike) -> np.ndarray | float:
     E = T * (np.pi**2 * g / 30.0) ** 0.25
     return float(E) if is_scalar else E
 
-def _get_energy_grid():
+
+
+def _floor_gstar_for_energy(E: np.ndarray) -> np.ndarray:
     """
-    Load (T, E) from a stored eff_rel_dof.txt in data.
-    temp_grid = np.logspace(-13, 16, 1000, base = 10)
-    energy_grid = energy_of_T(temp_grid)
-
-    Returns
-    -------
-    tuple[np.ndarray, np.ndarray]
-        Temperature and corresponding energy arrays.
-    """
-
-    temp_grid, _, _, energy_grid = load_eff_rel_dof()
-
-    return temp_grid, energy_grid
-
-def _floor_index_in_energy(E: np.ndarray) -> np.ndarray:
-    """
-    Return the index of the largest tabulated E <= query E.
+    Return the g_star of the largest tabulated E <= query E.
 
     Parameters
     ----------
@@ -73,14 +59,14 @@ def _floor_index_in_energy(E: np.ndarray) -> np.ndarray:
     Returns
     -------
     np.ndarray
-        Floor indices.
+        Floor g_star.
     """
-    temp_grid, energy_grid = _get_energy_grid()
-    E_asc = np.atleast_1d(np.asarray(E, dtype=float))
-    n = E_asc.size
-    idx_asc = np.searchsorted(E_asc, E, side="right") - 1
-    idx_asc = np.clip(idx_asc, 0, n - 1)
-    return idx_asc
+    _, gstar_grid, _, energy_grid = load_eff_rel_dof()
+    E = np.atleast_1d(np.asarray(E, dtype=float))
+    n = energy_grid.size
+    idx = np.searchsorted(energy_grid, E, side="right") - 1
+    idx = np.clip(idx, 0, n - 1)
+    return gstar_grid[idx]
 
 def temp_of_E(E: ArrayLike) -> np.ndarray | float:
     """
@@ -99,11 +85,8 @@ def temp_of_E(E: ArrayLike) -> np.ndarray | float:
     """
     is_scalar = np.isscalar(E)
     E = np.asarray(E, dtype=float)
-    temp_grid, _ = _get_energy_grid()
-    idx = _floor_index_in_energy(E)
-    floor_temp = temp_grid[idx]
-    g_star_val = g_star(floor_temp)
-    T_out = E / ((np.pi**2 * g_star_val / 30.0) ** 0.25)
+    floor_gstar = _floor_gstar_for_energy(E)
+    T_out = E / ((np.pi**2 * floor_gstar / 30.0) ** 0.25)
     return float(T_out) if is_scalar else T_out
 
 def freq_of_T(T: ArrayLike) -> np.ndarray | float:
