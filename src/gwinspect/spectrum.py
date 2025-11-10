@@ -103,7 +103,7 @@ def compute_omega_gw(
     f_max: float | None = None,
     num_of_points: int = 1000,
     show_freqs: bool = False,
-    show_efolds: bool = False,
+    show_efolds: bool = False
 ):
     """
     Compute the present-day spectral energy density Ω_GW(f) of inflationary first-order gravitational waves
@@ -185,16 +185,18 @@ def compute_omega_gw(
         raise ValueError(f"The temperature corresponding to the end of pre-hot Big Bang phase, T_rstar, is below BBN temperature ({T_bbn} GeV).")
 
     # --- Reorder energies: latest → earliest input → time-ordered (high → low) ---
-    sorted_energy = sorted(energy_list, reverse=True)
-    for i in range(1, len(sorted_energy)):
-        if sorted_energy[i] >= sorted_energy[i - 1]:
-            raise ValueError("energy_list provided is not strictly increasing from latest to earliest epoch.")
+    if energy_list:
+        sorted_energy = sorted(energy_list, reverse=True)
+        for i in range(1, len(sorted_energy)):
+            if sorted_energy[i] >= sorted_energy[i - 1]:
+                raise ValueError("energy_list provided is not strictly increasing from latest to earliest epoch.")
 
-    if T_rstar >= temp_of_E(sorted_energy[-1]):
-        raise ValueError("T_rstar >= the temperature corresponding to the beginning of the final pre-hot Big Bang epoch. Adjust energies or T_rstar.")
-    if sorted_energy[0] >= E_inf:
-        raise ValueError("The energy corresponding to the end of the first pre-hot Big Bang epoch >= E_inf. Adjust energies or E_inf or r.")
-
+        if T_rstar >= temp_of_E(sorted_energy[-1]):
+            raise ValueError("T_rstar >= the temperature corresponding to the beginning of the final pre-hot Big Bang epoch. Adjust energies or T_rstar.")
+        if sorted_energy[0] >= E_inf:
+            raise ValueError("The energy corresponding to the end of the first pre-hot Big Bang epoch >= E_inf. Adjust energies or E_inf or r.")
+    else:
+        sorted_energy = []
     # --- E-folds per epoch ---
     energy_boundaries = [E_inf] + sorted_energy + [energy_of_T(T_rstar)]
     efold_list = []
