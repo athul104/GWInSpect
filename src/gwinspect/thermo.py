@@ -229,36 +229,11 @@ def g_s(T: ArrayLike) -> np.ndarray | float:
     out[T > 1e16] = np.nan
     return _return_like_input(Tin, out)
 
-def energy_of_T(T: ArrayLike) -> np.ndarray | float:
-    """
-    Convert temperature [GeV] to effective energy scale [GeV].
 
-    Parameters
-    ----------
-    T : float or array-like
-        Temperature in GeV.
 
-    Returns
-    -------
-    float or ndarray
-        Effective energy scale(s).
-    """
-    is_scalar = np.isscalar(T)
-    T = np.asarray(T, dtype=float)
-    g = g_star(T)
-    E = T * (np.pi**2 * g / 30.0) ** 0.25
-    return float(E) if is_scalar else E
 
-# ----------------------------------------------------------------------------
-# Optional: Generate updated table manually
-# ----------------------------------------------------------------------------
-if __name__ == '__main__':
-    t_list = np.logspace(-13, 16, 100000)
-    g_star_arr = g_star(t_list)
-    g_s_arr = g_s(t_list)
-    energy_arr = energy_of_T(t_list)
-
-    data = np.column_stack((t_list, g_star_arr, g_s_arr, energy_arr))
-    with open("src/gwinspect/data/eff_rel_dof.txt", "w") as f:
-        f.write("temperature[GeV]    g_star    g_s    energy[GeV]\n")
-        np.savetxt(f, data, fmt="%.6e")
+__all__ = [
+    "g_star",
+    "g_s",
+    "load_eff_rel_dof",
+]
