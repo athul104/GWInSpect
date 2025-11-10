@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 — 2025-11-03  
+## 1.0.0 — 2025-11-10  
 **First stable release — verified modules, tested interfaces, PyPI-ready**
 
 ### Highlights:
@@ -11,8 +11,7 @@
 ### Improvements:
 - `constants.py`: Now user-overridable via `set_constants()`.
 - `thermo.py`:
-  - Supports user-defined relativistic degrees of freedom data (TXT, CSV, NumPy arrays).
-  - Efficient floor-based interpolation.
+  - Compute effective number of relativistic degrees of freedom in energy density and entropy density.
 - `cosmo_tools.py` (renamed from `convert.py`):
   - Renamed functions for clarity: `energy_of_T`, `temp_of_E`, `freq_of_T`, `get_efolds`.
   - Added docstrings, cleaner structure.

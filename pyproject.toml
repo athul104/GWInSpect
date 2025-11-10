@@ -9,7 +9,11 @@ description = "Spectral energy density of inflationary first-order gravitational
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "GPL-3.0-or-later" }
-authors = [{ name = "GWInSpect authors" }]
+authors = [
+  { name = "Athul K. Soman", email = "akuruvai@sissa.it" },
+  { name = "Swagat S. Mishra" }
+]
+
 keywords = ["cosmology", "gravitational waves", "reheating", "BBN", "early universe"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
