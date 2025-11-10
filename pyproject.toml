@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gwinspect"
-version = "1.0.0"
+version = "2.0.0.dev0"
 description = "Spectral energy density of inflationary first-order gravitational waves with flexible multi-epoch modeling."
 readme = "README.md"
 requires-python = ">=3.9"
