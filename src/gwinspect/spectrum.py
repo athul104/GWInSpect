@@ -23,6 +23,7 @@ Main API:
 
 from __future__ import annotations
 
+from mpmath.libmp.libelefun import k
 import numpy as np
 from mpmath import besselj
 from scipy.special import gamma
@@ -103,7 +104,9 @@ def compute_omega_gw(
     f_max: float | None = None,
     num_of_points: int = 1000,
     show_freqs: bool = False,
-    show_efolds: bool = False
+    show_efolds: bool = False,
+    k_pivot: float = 0.05,
+    n_T = 0,
 ):
     """
     Compute the present-day spectral energy density Ω_GW(f) of inflationary first-order gravitational waves
@@ -137,6 +140,10 @@ def compute_omega_gw(
     show_efolds : bool
         If True, return the list of e-folds per epoch in the pre-hot Big Bang phase, [N_e1, N_e2, ..., N_en].
         The function also internally checks that each epoch has N_e >= 1. If not, a ValueError is raised.
+    k_pivot : float
+        CMB Pivot scale in Mpc^-1. Default is 0.05.
+    n_T : float
+        inflationary tensor spectral index. Default is 0.
 
     Returns
     -------
@@ -292,8 +299,10 @@ def compute_omega_gw(
             Present-day spectral energy density Ω_GW(f).
         '''
 
+        f_pivot = (9.70e-15 * k_pivot)/(2*np.pi) #Hz, CMB Pivot frequency at present day
+
         A, B = _coeff(f)
-        return norm * (f / freq_list[-1])**(-2) * (A**2 + B**2)
+        return norm * (f / freq_list[-1])**(-2) * (A**2 + B**2) * (f / f_pivot)**n_T
 
     f_inf = freq_of_T(temp_of_E(E_inf))
 
