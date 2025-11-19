@@ -31,7 +31,7 @@ pip install gwinspect
 pip install git+https://github.com/athul104/GWInSpect.git
 ```
 
-### 3. 🛠️ Cloning repo to your local system (if you need to modify the package)
+### 3. 🛠️ Cloning repo (to make an editable copy of the package in your local system)
 
 ```bash
 git clone https://github.com/athul104/GWInSpect.git
