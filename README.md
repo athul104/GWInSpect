@@ -11,9 +11,7 @@
 **GWInSpect** is a lightweight, research-grade Python package that computes:
 
 - The **present-epoch spectral energy density** of first-order inflationary gravitational waves, $\Omega_{\rm GW}(f) $, produced by a given (user-defined) post-inflationary expansion history.
-- Verifies whether the **BBN constraint** on total (integrated) gravitational wave energy density is satisfied.
-
-A full tutorial notebook is included under [`examples/tutorial_gwinspect.ipynb`](examples/tutorial_gwinspect.ipynb).
+- Verifies whether the **BBN constraint** on (integrated) gravitational wave energy density is satisfied.
 
 ---
 
@@ -50,6 +48,9 @@ The following necessary libraries will be automatically installed when you insta
 * ```scipy >= 1.9```
 * ```mpmath >= 1.2.0```
 
+## 📓 Tutorial Notebook
+
+The package includes a tutorial notebook under [`examples/tutorial_gwinspect.ipynb`](examples/tutorial_gwinspect.ipynb)
 
 ## 🧱 Package Structure
 
@@ -83,10 +84,6 @@ Compute the duration of each epoch in terms of number of $e$-folds
     * Contains constants: reduced Planck mass ```m_P```, present CMB temperature ```T0```, scalar amplitude ```A_S```, Present radiation density parameter ```omega_rad0```, BBN temperature ```T_bbn```, matter-radiation equality temperature ```T_eq```
     * Users can also redefine the values of this conatant using ```set_constants```
 
-
-## 📓 Tutorial Notebook
-
-The package includes a tutorial notebook under [`examples/tutorial_gwinspect.ipynb`](examples/tutorial_gwinspect.ipynb)
 
 ## 📚 Citation
 
