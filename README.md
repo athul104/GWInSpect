@@ -19,19 +19,21 @@ A full tutorial notebook is included under [`examples/tutorial_gwinspect.ipynb`]
 
 ## 📦 Installation
 
-### ✅ From PyPI (Recommended)
+Install ```GWInSpect``` by running any one of the following commands in your terminal. 
+
+### 1. ✅ From PyPI (Recommended)
 
 ```bash
 pip install gwinspect
 ```
 
-### 🧪 From GitHub
+### 2. 🧪 From GitHub
 
 ```bash
 pip install git+https://github.com/athul104/GWInSpect.git
 ```
 
-### 🛠️ Cloning repo to your local system
+### 3. 🛠️ Cloning repo to your local system (if you need to modify the package)
 
 ```bash
 git clone https://github.com/athul104/GWInSpect.git
@@ -40,6 +42,9 @@ pip install -e .
 ```
 
 ## 📋 Requirements
+
+The following necessary libraries will be automatically installed when you install ```GWInSpect```.
+
 * Python **3.9** or later
 * ```numpy >= 1.21```
 * ```scipy >= 1.9```
@@ -81,11 +86,7 @@ Compute the duration of each epoch in terms of number of $e$-folds
 
 ## 📓 Tutorial Notebook
 
-The package includes a tutorial notebook:
-
-```bash
-examples/tutorial_gwinspect.ipynb
-```
+The package includes a tutorial notebook under [`examples/tutorial_gwinspect.ipynb`](examples/tutorial_gwinspect.ipynb)
 
 ## 📚 Citation
 
