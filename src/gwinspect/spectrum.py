@@ -307,3 +307,8 @@ def compute_omega_gw(
         out.append(efold_list)
 
     return tuple(out)
+
+
+__all__ = [
+    "compute_omega_gw",
+]
